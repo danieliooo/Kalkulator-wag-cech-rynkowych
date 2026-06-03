@@ -37,7 +37,7 @@ with st.expander("📖 Instrukcja obsługi kalkulatora i zasada działania", exp
 
     ---
 
-    ### 💻 Krok 2: Wczytanie i konfiguracja w aplikacji WWW
+    ### 💻 Krok 2: Wczytanie i升onfiguracja w aplikacji WWW
     1. **Wgranie bazy:** W panelu bocznym (po lewej stronie) kliknij przycisk **"Browse files"** i wskaż przygotowany plik Excel (`.xlsx`) lub CSV.
     2. **Mapowanie ceny i ID:** Z list rozwijanych wybierz, która kolumna w Twoim pliku odpowiada za **ID/Lp.**, a która zawiera **CENĘ**.
     3. **Wybór cech rynkowych:** W polu wielokrotnego wyboru (*multiselect*) zaznacz wyłącznie te kolumny, które **zawierają już liczbową ocenę cech (nie słowną)**. Na ich podstawie system rozpocznie szukanie par.
@@ -71,10 +71,7 @@ if uploaded_file is not None:
             if col != 'nazwa' and col != 'Nazwa':
                 df[col] = pd.to_numeric(df[col], errors='coerce')
         
-        st.subheader("👀 Podgląd wczytanej bazy danych")
-        st.dataframe(df, use_container_width=True)
-        
-        # --- DYNAMICZNE MAPOWANIE KOLUMN ---
+        # --- DYNAMICZNE MAPOWANIE KOLUMN (W PANELU BOCZNYM) ---
         st.sidebar.header("⚙️ 2. Konfiguracja Kolumn")
         
         kolumna_lp = st.sidebar.selectbox("Wskaż kolumnę z ID/Lp.:", options=df.columns)
@@ -88,6 +85,12 @@ if uploaded_file is not None:
             options=dostasowane_kolumny,
             default=[]  
         )
+        
+        # --- POPRAWIONE: Podgląd bazy danych w sekcji rozwijanej ---
+        # Jeśli użytkownik wybrał chociaż jedną cechę rynkową, sekcja podglądu automatycznie się zwija (expanded=False)
+        cechy_wybrane = len(wybrane_cechy) > 0
+        with st.expander("👀 Podgląd wczytanej bazy danych", expanded=not cechy_wybrane):
+            st.dataframe(df, use_container_width=True)
         
         if not wybrane_cechy:
             st.warning("⚠️ Wybierz przynajmniej jedną cechę rynkową z ocenami liczbowymi w panelu bocznym (Krok 2), aby rozpocząć obliczenia.")
