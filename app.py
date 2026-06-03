@@ -10,7 +10,12 @@ st.title("📊 Kalkulator wag cech rynkowych – wycena nieruchomości")
 
 # --- PEŁNA INSTRUKCJA UŻYTKOWNIKA NA EKRANIE GŁÓWNYM ---
 st.markdown("""
-Aplikacja jest profesjonalnym narzędziem wspomagającym proces wyceny nieruchomości w podejściu porównawczym. Służy do automatycznego określania wag cech rynkowych w oparciu o algorytm analizy statystycznej par spełniających rygorystyczne kryterium **ceteris paribus** (przy pozostałych warunkach niezmiennych).
+Aplikacja służy do automatycznego określania wag cech rynkowych w oparciu o algorytm analizy statystycznej par spełniających rygorystyczne kryterium **ceteris paribus** (przy pozostałych warunkach niezmiennych).
+
+### 💡 Czym jest zasada ceteris paribus w tym programie?
+Algorytm przeszukuje Twoją bazę danych i automatycznie **wskazuje pary nieruchomości, które różnią się między sobą oceną tylko jednej, konkretnej cechy**, podczas gdy wszystkie pozostałe parametry są identyczne. 
+
+> **Przykład:** Jeśli program znajdzie dwa mieszkania, które mają taki sam standard, są na tym samym piętrze i mają tę samą powierzchnię, ale jedno leży w lepszej lokalizacji niż drugie – oznacza to, że różnica w ich cenie wynika wyłącznie z czynnika lokalizacji. Na tej podstawie system oblicza wagę dla cechy 'lokalizacja'.
 
 ---
 
@@ -37,7 +42,7 @@ Interfejs programu został zaprojektowany tak, aby obsługiwać pliki o niestand
 
 1. **Wgranie bazy:** W panelu bocznym (po lewej stronie) kliknij przycisk **"Browse files"** i wskaż przygotowany plik Excel (`.xlsx`) lub CSV. *(Do celów demonstracyjnych można użyć dołączonego osobno pliku testowego).*
 2. **Mapowanie ceny i ID:** Z list rozwijanych wybierz, która kolumna w Twoim pliku odpowiada za **ID/Lp.**, a która zawiera **CENĘ**.
-3. **Wybór cech rynkowych:** W polu wielokrotnego wyboru (*multiselect*) zaznacz wyłącznie te kolumny, które stanowią **CECHY RYNKOWE** podlegające analizie. 
+3. **Wybór cech rynkowych:** W polu wielokrotnego wyboru (*multiselect*) zaznacz wyłącznie te kolumny, które **zawierają już liczbową ocenę cech (nie słowną)**. Na ich podstawie system rozpocznie szukanie par.
 
 ---
 
@@ -81,13 +86,13 @@ if uploaded_file is not None:
         
         dostasowane_kolumny = [c for c in df.columns if c not in [kolumna_lp, kolumna_cena]]
         wybrane_cechy = st.sidebar.multiselect(
-            "Wybierz kolumny stanowiące CECHY RYNKOWE:",
+            "Wybierz kolumny stanowiące CECHY RYNKOWE (tylko kolumny z ocenami liczbowymi):",
             options=dostasowane_kolumny,
             default=[]  
         )
         
         if not wybrane_cechy:
-            st.warning("⚠️ Wybierz przynajmniej jedną cechę rynkową w panelu bocznym (Krok 2), aby rozpocząć obliczenia.")
+            st.warning("⚠️ Wybierz przynajmniej jedną cechę rynkową z ocenami liczbowymi w panelu bocznym (Krok 2), aby rozpocząć obliczenia.")
         else:
             delta_c = df[kolumna_cena].max() - df[kolumna_cena].min()
             sredmie_wagi = {}
