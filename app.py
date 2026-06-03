@@ -24,14 +24,9 @@ if uploaded_file is not None:
             df = pd.read_csv(uploaded_file, sep=';')
         
         # --- AUTOMATYCZNE CZYSZCZENIE DANYCH Z TEKSTU ---
-        # Zamieniamy wszystkie kolumny (oprócz 'nazwa') na typ liczbowy. 
-        # Jeśli znajdzie tekst w liczbach, zamieni go na NaN (pustą wartość), dzięki czemu program się nie wyłoży.
         for col in df.columns:
-            if col != 'nazwa':
+            if col != 'nazwa' and col != 'Nazwa':
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-        
-        # Usuwamy wiersze, które po konwersji mają puste wartości w kolumnie z ceną
-        df = df.dropna(subset=['cena'])
         # -----------------------------------------------------
         
         st.subheader("👀 Podgląd wczytanej bazy danych")
@@ -46,12 +41,15 @@ if uploaded_file is not None:
         # Wybór kolumny z ceną
         kolumna_cena = st.sidebar.selectbox("Wskaż kolumnę z CENĄ (za m² lub całkowitą):", options=df.columns)
         
+        # Po wyborze kolumny ceny, czyścimy ewentualne puste wiersze w tej konkretnej kolumnie
+        df = df.dropna(subset=[kolumna_cena])
+        
         # Wybór kolumn, które stanowią cechy rynkowe (wielokrotny wybór)
-        dostepne_kolumny_cech = [c for c in df.columns if c not in [kolumna_lp, kolumna_cena]]
+        dostasowane_kolumny = [c for c in df.columns if c not in [kolumna_lp, kolumna_cena]]
         wybrane_cechy = st.sidebar.multiselect(
             "Wybierz kolumny stanowiące CECHY RYNKOWE:",
-            options=dostepne_kolumny_cech,
-            default=dostepne_kolumny_cech[:4] if len(dostepne_kolumny_cech) >= 4 else dostepne_kolumny_cech
+            options=dostasowane_kolumny,
+            default=dostasowane_kolumny[:4] if len(dostasowane_kolumny) >= 4 else dostasowane_kolumny
         )
         
         if not wybrane_cechy:
@@ -69,7 +67,6 @@ if uploaded_file is not None:
             
             # Główna pętla algorytmu oparta na dynamicznej liście cech
             for kolumna_glowna in wybrane_cechy:
-                # Pozostałe cechy ze zbioru wybranych przez użytkownika
                 pozostale_cechy = [c for c in wybrane_cechy if c != kolumna_glowna]
                 wagi_par = []
                 pelny_zakres_ocen = df[kolumna_glowna].max() - df[kolumna_glowna].min()
