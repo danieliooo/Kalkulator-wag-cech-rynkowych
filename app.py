@@ -20,7 +20,7 @@ with st.expander("📖 Instrukcja obsługi kalkulatora i zasada działania", exp
     ### 💡 Czym jest zasada ceteris paribus w tym programie?
     Algorytm przeszukuje Twoją bazę danych i automatycznie **wskazuje pary nieruchomości, które różnią się między sobą oceną tylko jednej, konkretnej cechy**, podczas gdy wszystkie pozostałe parametry są identyczne. 
 
-    > **Przykład:** Jeśli program znajdzie dwa mieszkania, które mają taki sam standard, są na tym samym pietrze i mają tę samą powierzchnię, ale jedno leży w lepszej lokalizacji niż drugie – oznacza to, że różnica w ich cenie wynika wyłącznie z czynnika lokalizacji. Na tej podstawie system oblicza wagę dla cechy 'lokalizacja'.
+    > **Przykład:** Jeśli program znajdzie dwa mieszkania, które mają taki sam standard, są na tym samym piętrze i mają tę samą powierzchnię, ale jedno leży w lepszej lokalizacji niż drugie – oznacza to, że różnica w ich cenie wynika wyłącznie z czynnika lokalizacji. Na tej podstawie system oblicza wagę dla cechy 'lokalizacja'.
 
     ---
 
@@ -71,7 +71,6 @@ if uploaded_file is not None:
         df = df.dropna(how='all').dropna(axis=1, how='all')
         
         # --- BEZPIECZNE SZUKANIE NAGŁÓWKA ---
-        # Przeszukujemy wiersze od góry, aby znaleźć ten, który zawiera słowo kluczowe (np. lp, id, cena)
         index_naglowka = None
         for idx in range(min(5, len(df))):  # sprawdzamy pierwsze 5 wierszy
             wiersz_str = df.iloc[idx].astype(str).str.lower().values
@@ -80,10 +79,9 @@ if uploaded_file is not None:
                 break
                 
         if index_naglowka is not None:
-            # Ustawiamy wykryty wiersz jako prawdziwy nagłówek tabeli
-            nowe_kolumny = df.iloc[index_naglowka].astype(str).tolist()
-            # Czyszczenie nazw kolumn z białych znaków i kropek na końcu
-            df.columns = [c.strip() for c in nowe_kolumny]
+            # POPRAWIONE: Bezpieczna konwersja na tekst i czyszczenie nazw kolumn
+            nowe_kolumny = df.iloc[index_naglowka].fillna("Unnamed").astype(str).tolist()
+            df.columns = [str(c).strip() for c in nowe_kolumny]
             df = df.iloc[index_naglowka + 1:]
             
         df = df.reset_index(drop=True)
@@ -91,7 +89,7 @@ if uploaded_file is not None:
         
         # --- AUTOMATYCZNE CZYSZCZENIE DANYCH Z TEKSTU ---
         for col in df.columns:
-            if col.lower() != 'nazwa':
+            if str(col).lower() != 'nazwa':
                 df[col] = pd.to_numeric(df[col], errors='coerce')
         
         # --- DYNAMICZNE MAPOWANIE KOLUMN (W PANELU BOCZNYM) ---
@@ -102,7 +100,7 @@ if uploaded_file is not None:
         
         df = df.dropna(subset=[kolumna_cena])
         
-        dostasowane_kolumny = [c for c in df.columns if c not in [kolumna_lp, kolumna_cena] and c.lower() != 'nazwa']
+        dostasowane_kolumny = [c for c in df.columns if c != kolumna_lp and c != kolumna_cena and str(c).lower() != 'nazwa']
         wybrane_cechy = st.sidebar.multiselect(
             "Wybierz kolumny stanowiące CECHY RYNKOWE (tylko kolumny z ocenami liczbowymi):",
             options=dostasowane_kolumny,
