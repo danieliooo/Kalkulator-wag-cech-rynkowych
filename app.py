@@ -20,7 +20,7 @@ with st.expander("📖 Instrukcja obsługi kalkulatora i zasada działania", exp
     ### 💡 Czym jest zasada ceteris paribus w tym programie?
     Algorytm przeszukuje Twoją bazę danych i automatycznie **wskazuje pary nieruchomości, które różnią się między sobą oceną tylko jednej, konkretnej cechy**, podczas gdy wszystkie pozostałe parametry są identyczne. 
 
-    > **Przykład:** Jeśli program znajdzie dwa mieszkania, które mają taki sam standard, są na tym samym piętrze i mają tę samą powierzchnię, ale jedno leży w lepszej lokalizacji niż drugie – oznacza to, że różnica w ich cenie wynika wyłącznie z czynnika lokalizacji. Na tej podstawie system oblicza wagę dla cechy 'lokalizacja'.
+    > **Przykład:** Jeśli program znajdzie dwa mieszkania, które mają taki sam standard, są na tym samym pietrze i mają tę samą powierzchnię, ale jedno leży w lepszej lokalizacji niż drugie – oznacza to, że różnica w ich cenie wynika wyłącznie z czynnika lokalizacji. Na tej podstawie system oblicza wagę dla cechy 'lokalizacja'.
 
     ---
 
@@ -40,7 +40,7 @@ with st.expander("📖 Instrukcja obsługi kalkulatora i zasada działania", exp
     ### 💻 Krok 2: Wczytanie i konfiguracja w aplikacji WWW
     1. **Wgranie bazy:** W panelu bocznym (po lewej stronie) kliknij przycisk **"Browse files"** i wskaż przygotowany plik Excel (`.xlsx`) lub CSV.
     2. **Mapowanie ceny i ID:** Z list rozwijanych wybierz, która kolumna w Twoim pliku odpowiada za **ID/Lp.**, a która zawiera **CENĘ**.
-    3. **Wybór cech rynkowych:** W polu wielokrotnego wyboru (*multiselect*) zaznacz wyłącznie te kolumny, które **zawierają już liczbową ocenę cech (nie słowną)**. Na ich podstawie system rozpocząć szukanie par.
+    3. **Wybór cech rynkowych:** W polu wielokrotnego wyboru (*multiselect*) zaznacz wyłącznie te kolumny, które **zawierają już liczbową ocenę cech (nie słowną)**. Na ich podstawie system rozpocznie szukanie par.
 
     ---
 
@@ -65,25 +65,33 @@ if uploaded_file is not None:
         if uploaded_file.name.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(uploaded_file)
         else:
-            # Automatyczne wykrywanie separatora (przecinek lub średnik)
             df = pd.read_csv(uploaded_file, sep=None, engine='python')
         
-        # Czyszczenie pustych wierszy widm
-        df = df.dropna(how='all')
+        # Czyszczenie całkowicie pustych wierszy i kolumn
+        df = df.dropna(how='all').dropna(axis=1, how='all')
         
-        # Zabezpieczenie przed dodatkowymi opisami nad właściwą tabelą
-        if df.shape[0] > 0 and any(df.iloc[0].astype(str).str.contains('lp|id|cena', case=False, na=False)):
-            new_header = df.iloc[0]
-            df = df[1:]
-            df.columns = new_header
+        # --- BEZPIECZNE SZUKANIE NAGŁÓWKA ---
+        # Przeszukujemy wiersze od góry, aby znaleźć ten, który zawiera słowo kluczowe (np. lp, id, cena)
+        index_naglowka = None
+        for idx in range(min(5, len(df))):  # sprawdzamy pierwsze 5 wierszy
+            wiersz_str = df.iloc[idx].astype(str).str.lower().values
+            if any('lp' in x or 'id' in x or 'cena' in x for x in wiersz_str):
+                index_naglowka = idx
+                break
+                
+        if index_naglowka is not None:
+            # Ustawiamy wykryty wiersz jako prawdziwy nagłówek tabeli
+            nowe_kolumny = df.iloc[index_naglowka].astype(str).tolist()
+            # Czyszczenie nazw kolumn z białych znaków i kropek na końcu
+            df.columns = [c.strip() for c in nowe_kolumny]
+            df = df.iloc[index_naglowka + 1:]
             
-        # Resat indeksów po czyszczeniu nagłówków
         df = df.reset_index(drop=True)
         # -----------------------------------------------------
         
         # --- AUTOMATYCZNE CZYSZCZENIE DANYCH Z TEKSTU ---
         for col in df.columns:
-            if col != 'nazwa' and col != 'Nazwa':
+            if col.lower() != 'nazwa':
                 df[col] = pd.to_numeric(df[col], errors='coerce')
         
         # --- DYNAMICZNE MAPOWANIE KOLUMN (W PANELU BOCZNYM) ---
@@ -94,7 +102,7 @@ if uploaded_file is not None:
         
         df = df.dropna(subset=[kolumna_cena])
         
-        dostasowane_kolumny = [c for c in df.columns if c not in [kolumna_lp, kolumna_cena]]
+        dostasowane_kolumny = [c for c in df.columns if c not in [kolumna_lp, kolumna_cena] and c.lower() != 'nazwa']
         wybrane_cechy = st.sidebar.multiselect(
             "Wybierz kolumny stanowiące CECHY RYNKOWE (tylko kolumny z ocenami liczbowymi):",
             options=dostasowane_kolumny,
@@ -124,7 +132,7 @@ if uploaded_file is not None:
                 
                 nazwa_wyswietlana = str(kolumna_glowna).upper()
                 with st.expander(f"Cecha: {nazwa_wyswietlana} (Pełen zakres ocen = {pelny_zakres_ocen})"):
-                    if pelny_zakres_ocen == 0:
+                    if pelny_zakres_ocen == 0 or pd.isna(pelny_zakres_ocen):
                         st.warning("Brak zróżnicowania ocen dla tej cechy w bazie danych.")
                         sredmie_wagi[kolumna_glowna] = 0.0
                         continue
