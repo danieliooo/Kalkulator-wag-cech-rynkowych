@@ -2,13 +2,25 @@ import streamlit as st
 import pandas as pd
 import io
 
-# Konfiguracja strony
-st.set_page_config(page_title="Dynamiczny Kalkulator Wag Cech", layout="wide")
+# Konfiguracja strony (to, co widać na karcie w przeglądarce)
+st.set_page_config(page_title="Kalkulator Wag Cech Rynkowych", layout="wide")
 
-st.title("📊 Uniwersalny Analizator Rynku Nieruchomości")
+# Nowy nagłówek główny programu
+st.title("📊 Kalkulator wag cech rynkowych - wycena nieruchomości")
+
+# --- INSTRUKCJA KROK PO KROKU NA EKRANIE GŁÓWNYM ---
 st.markdown("""
-Ta wersja aplikacji automatycznie dostosowuje się do **dowolnego pliku Excel/CSV**. 
-Wskaż kolumny w panelu bocznym, a program sam dostosuje algorytm *ceteris paribus*.
+### 📖 Instrukcja obsługi kalkulatora (Krok po kroku):
+
+1. **Wgraj plik:** W panelu bocznym po lewej stronie kliknij przycisk **Browse files** i wskaż swój plik Excel (`.xlsx`) lub CSV ze zbiorem nieruchomości.
+2. **Sprawdź podgląd:** Po załadowaniu pliku na środku ekranu wyświetli się tabela – upewnij się, że dane wczytały się poprawnie.
+3. **Sformatuj kolumny:** W panelu bocznym wskaż programowi:
+    * Która kolumna zawiera unikalne identyfikatory nieruchomości (**ID/Lp.**).
+    * Która kolumna zawiera ceny nieruchomości (**CENĘ**).
+4. **Wskaź cechy rynkowe:** W polu *'Wybierz kolumny stanowiące CECHY RYNKOWE'* kliknij i wybierz z listy te kolumny, dla których chcesz obliczyć wagi rynkowe (algorytm *ceteris paribus*).
+5. **Analizuj wyniki:** Na dole ekranu wyświetli się gotowa tabela wag ostatecznych (skorygowana do 100%) oraz interaktywny wykres słupkowy.
+6. **Pobierz raport:** Jeśli potrzebujesz zestawienia do operatu, kliknij przycisk **Pobierz raport tekstowy** w lewym dolnym rogu.
+---
 """)
 
 # Panel boczny do wczytywania danych
@@ -44,20 +56,20 @@ if uploaded_file is not None:
         # Po wyborze kolumny ceny, czyścimy ewentualne puste wiersze w tej konkretnej kolumnie
         df = df.dropna(subset=[kolumna_cena])
         
-        # Wybór kolumn, które stanowią cechy rynkowe (wielokrotny wybór)
+        # Wybór kolumn, które stanowią cechy rynkowe - POPRAWIONE: Domyślnie pusta lista []
         dostasowane_kolumny = [c for c in df.columns if c not in [kolumna_lp, kolumna_cena]]
         wybrane_cechy = st.sidebar.multiselect(
             "Wybierz kolumny stanowiące CECHY RYNKOWE:",
             options=dostasowane_kolumny,
-            default=dostasowane_kolumny[:4] if len(dostasowane_kolumny) >= 4 else dostasowane_kolumny
+            default=[]  # Zmiana: System niczego nie sugeruje na start
         )
         
         if not wybrane_cechy:
-            st.warning("⚠️ Wybierz przynajmniej jedną cechę rynkową w panelu bocznym, aby rozpocząć obliczenia.")
+            st.warning("⚠️ Wybierz przynajmniej jedną cechę rynkową w panelu bocznym (Krok 4), aby rozpocząć obliczenia.")
         else:
             # Obliczenia bazowe na podstawie dynamicznych wskazań
             delta_c = df[kolumna_cena].max() - df[kolumna_cena].min()
-            srednie_wagi = {}
+            sredmie_wagi = {}
             
             st.subheader("🔍 Analiza par rynkowych (Ceteris Paribus)")
             
@@ -75,7 +87,7 @@ if uploaded_file is not None:
                 with st.expander(f"Cecha: {nazwa_wyswietlana} (Pełen zakres ocen = {pelny_zakres_ocen})"):
                     if pelny_zakres_ocen == 0:
                         st.warning("Brak zróżnicowania ocen dla tej cechy w bazie danych.")
-                        srednie_wagi[kolumna_glowna] = 0.0
+                        sredmie_wagi[kolumna_glowna] = 0.0
                         continue
                     
                     tabela_par = []
@@ -113,20 +125,20 @@ if uploaded_file is not None:
                     if tabela_par:
                         st.table(pd.DataFrame(tabela_par))
                         srednia_cechy = sum(wagi_par) / len(wagi_par)
-                        srednie_wagi[kolumna_glowna] = srednia_cechy
+                        sredmie_wagi[kolumna_glowna] = srednia_cechy
                         st.info(f"**Średnia waga wstępna dla cechy '{kolumna_glowna}': {srednia_cechy:.2f}%**")
                         log_output.write(f"\nCecha: {kolumna_glowna} -> Wykryto par: {len(wagi_par)}, Waga wstępna: {srednia_cechy:.2f}%\n")
                     else:
                         st.write("Nie znaleziono par spełniających kryteria rynkowe dla tej cechy.")
-                        srednie_wagi[kolumna_glowna] = 0.0
+                        sredmie_wagi[kolumna_glowna] = 0.0
             
             # --- WYNIKI KOŃCOWE ---
             st.subheader("🎯 Wynik Końcowy - Wagi Cech Rynkowych")
-            suma_srednich = sum(srednie_wagi.values())
+            suma_srednich = sum(sredmie_wagi.values())
             
             if suma_srednich > 0:
                 wyniki_tabela = []
-                for cecha, sw in srednie_wagi.items():
+                for cecha, sw in sredmie_wagi.items():
                     waga_przeskalowana = (sw / suma_srednich) * 100
                     wyniki_tabela.append({
                         "Cecha rynkowa": str(cecha).capitalize(),
@@ -139,14 +151,14 @@ if uploaded_file is not None:
                 
                 # Wykres słupkowy
                 df_wykres = pd.DataFrame({
-                    'Cecha': [str(c).capitalize() for c in srednie_wagi.keys()],
-                    'Waga (%)': [(sw / suma_srednich) * 100 for sw in srednie_wagi.values()]
+                    'Cecha': [str(c).capitalize() for c in sredmie_wagi.keys()],
+                    'Waga (%)': [(sw / suma_srednich) * 100 for sw in sredmie_wagi.values()]
                 })
                 st.bar_chart(data=df_wykres, x='Cecha', y='Waga (%)')
                 
                 # Zapis do raportu
                 log_output.write("\n====================================\nZESTAWIENIE KOŃCOWE (DO 100%):\n")
-                for cecha, sw in srednie_wagi.items():
+                for cecha, sw in sredmie_wagi.items():
                     log_output.write(f"-> {cecha}: {(sw / suma_srednich) * 100:.2f}%\n")
                 
                 st.sidebar.download_button(
