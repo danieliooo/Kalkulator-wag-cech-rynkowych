@@ -2,24 +2,25 @@ import streamlit as st
 import pandas as pd
 import io
 
-# Konfiguracja strony (to, co widać na karcie w przeglądarce)
+# Konfiguracja strony
 st.set_page_config(page_title="Kalkulator Wag Cech Rynkowych", layout="wide")
 
-# Nowy nagłówek główny programu
+# Nagłówek główny programu
 st.title("📊 Kalkulator wag cech rynkowych - wycena nieruchomości")
 
 # --- INSTRUKCJA KROK PO KROKU NA EKRANIE GŁÓWNYM ---
 st.markdown("""
 ### 📖 Instrukcja obsługi kalkulatora (Krok po kroku):
 
-1. **Wgraj plik:** W panelu bocznym po lewej stronie kliknij przycisk **Browse files** i wskaż swój plik Excel (`.xlsx`) lub CSV ze zbiorem nieruchomości.
+1. **Wgraj plik:** W panelu bocznym po lewej stronie kliknij przycisk **Browse files** i wskaż swój plik Excel (`.xlsx`) lub CSV ze zbiorem nieruchomości. *(Możesz użyć dołączonego osobno pliku testowego).*
 2. **Sprawdź podgląd:** Po załadowaniu pliku na środku ekranu wyświetli się tabela – upewnij się, że dane wczytały się poprawnie.
-3. **Sformatuj kolumny:** W panelu bocznym wskaż programowi:
-    * Która kolumna zawiera unikalne identyfikatory nieruchomości (**ID/Lp.**).
-    * Która kolumna zawiera ceny nieruchomości (**CENĘ**).
-4. **Wskaź cechy rynkowe:** W polu *'Wybierz kolumny stanowiące CECHY RYNKOWE'* kliknij i wybierz z listy te kolumny, dla których chcesz obliczyć wagi rynkowe (algorytm *ceteris paribus*).
-5. **Analizuj wyniki:** Na dole ekranu wyświetli się gotowa tabela wag ostatecznych (skorygowana do 100%) oraz interaktywny wykres słupkowy.
-6. **Pobierz raport:** Jeśli potrzebujesz zestawienia do operatu, kliknij przycisk **Pobierz raport tekstowy** w lewym dolnym rogu.
+3. **Sformatuj kolumny:** W panelu bocznym wskaż programowi, która kolumna zawiera identyfikatory (**ID/Lp.**), a która **CENĘ**.
+4. **Wskaż cechy rynkowe:** W polu *'Wybierz kolumny stanowiące CECHY RYNKOWE'* wybierz kolumny z cyfrowymi ocenami cech.
+
+⚠️ **WAŻNA UWAGA METODOLOGICZNA:** System **nie przypisuje automatycznie ocen** cech na podstawie wartości (np. roku budowy czy powierzchni). Wszystkie cechy rynkowe w pliku Excel muszą zostać wcześniej **przekształcone przez rzeczoznawcę na ręcznie stworzoną skalę liczbową** (np. `0, 1, 2` lub `-1, 0, 1`). Kolumny z cechami nie mogą zawierać tekstu!
+
+5. **Analizuj wyniki:** Na dole ekranu wyświetli się tabela wag ostatecznych (skorygowana do 100%) oraz wykres.
+6. **Pobierz raport:** Kliknij przycisk **Pobierz raport tekstowy** w lewym dolnym rogu, aby pobrać szczegółowy wykaz par do operatu.
 ---
 """)
 
@@ -29,7 +30,6 @@ uploaded_file = st.sidebar.file_uploader("Wgraj dowolny plik Excel (.xlsx) lub C
 
 if uploaded_file is not None:
     try:
-        # Wczytanie pliku
         if uploaded_file.name.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(uploaded_file)
         else:
@@ -39,7 +39,6 @@ if uploaded_file is not None:
         for col in df.columns:
             if col != 'nazwa' and col != 'Nazwa':
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-        # -----------------------------------------------------
         
         st.subheader("👀 Podgląd wczytanej bazy danych")
         st.dataframe(df, use_container_width=True)
@@ -47,37 +46,29 @@ if uploaded_file is not None:
         # --- DYNAMICZNE MAPOWANIE KOLUMN ---
         st.sidebar.header("⚙️ 2. Konfiguracja Kolumn")
         
-        # Wybór kolumny z ID / Lp.
         kolumna_lp = st.sidebar.selectbox("Wskaż kolumnę z ID/Lp.:", options=df.columns)
-        
-        # Wybór kolumny z ceną
         kolumna_cena = st.sidebar.selectbox("Wskaż kolumnę z CENĄ (za m² lub całkowitą):", options=df.columns)
         
-        # Po wyborze kolumny ceny, czyścimy ewentualne puste wiersze w tej konkretnej kolumnie
         df = df.dropna(subset=[kolumna_cena])
         
-        # Wybór kolumn, które stanowią cechy rynkowe - POPRAWIONE: Domyślnie pusta lista []
         dostasowane_kolumny = [c for c in df.columns if c not in [kolumna_lp, kolumna_cena]]
         wybrane_cechy = st.sidebar.multiselect(
             "Wybierz kolumny stanowiące CECHY RYNKOWE:",
             options=dostasowane_kolumny,
-            default=[]  # Zmiana: System niczego nie sugeruje na start
+            default=[]  
         )
         
         if not wybrane_cechy:
             st.warning("⚠️ Wybierz przynajmniej jedną cechę rynkową w panelu bocznym (Krok 4), aby rozpocząć obliczenia.")
         else:
-            # Obliczenia bazowe na podstawie dynamicznych wskazań
             delta_c = df[kolumna_cena].max() - df[kolumna_cena].min()
             sredmie_wagi = {}
             
             st.subheader("🔍 Analiza par rynkowych (Ceteris Paribus)")
             
-            # Bufor na raport tekstowy
             log_output = io.StringIO()
             log_output.write("RAPORT Z DYNAMICZNEJ ANALIZY PAR RYNKOWYCH\n====================================\n")
             
-            # Główna pętla algorytmu oparta na dynamicznej liście cech
             for kolumna_glowna in wybrane_cechy:
                 pozostale_cechy = [c for c in wybrane_cechy if c != kolumna_glowna]
                 wagi_par = []
@@ -96,7 +87,6 @@ if uploaded_file is not None:
                             m1 = df.iloc[i]
                             m2 = df.iloc[j]
                             
-                            # Dynamiczny warunek ceteris paribus dla wybranych kolumn
                             if all(pd.notna(m1[c]) and pd.notna(m2[c]) and m1[c] == m2[c] for c in pozostale_cechy) and m1[kolumna_glowna] != m2[kolumna_glowna]:
                                 if m1[kolumna_glowna] > m2[kolumna_glowna]:
                                     pmax, pmin = m1, m2
@@ -149,14 +139,12 @@ if uploaded_file is not None:
                 df_wyniki = pd.DataFrame(wyniki_tabela)
                 st.dataframe(df_wyniki, use_container_width=True)
                 
-                # Wykres słupkowy
                 df_wykres = pd.DataFrame({
                     'Cecha': [str(c).capitalize() for c in sredmie_wagi.keys()],
                     'Waga (%)': [(sw / suma_srednich) * 100 for sw in sredmie_wagi.values()]
                 })
                 st.bar_chart(data=df_wykres, x='Cecha', y='Waga (%)')
                 
-                # Zapis do raportu
                 log_output.write("\n====================================\nZESTAWIENIE KOŃCOWE (DO 100%):\n")
                 for cecha, sw in sredmie_wagi.items():
                     log_output.write(f"-> {cecha}: {(sw / suma_srednich) * 100:.2f}%\n")
