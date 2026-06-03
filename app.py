@@ -8,60 +8,58 @@ st.set_page_config(page_title="Kalkulator Wag Cech Rynkowych", layout="wide")
 # Nagłówek główny programu
 st.title("📊 Kalkulator wag cech rynkowych – wycena nieruchomości")
 
-# --- PEŁNA INSTRUKCJA UŻYTKOWNIKA NA EKRANIE GŁÓWNYM ---
-st.markdown("""
-Aplikacja służy do automatycznego określania wag cech rynkowych w oparciu o algorytm analizy statystycznej par spełniających rygorystyczne kryterium **ceteris paribus** (przy pozostałych warunkach niezmiennych).
+# Sprawdzenie czy plik został wgrany - potrzebne do automatycznego zwijania instrukcji
+plik_wgrany = st.session_state.get("file_uploaded", False)
 
-### 💡 Czym jest zasada ceteris paribus w tym programie?
-Algorytm przeszukuje Twoją bazę danych i automatycznie **wskazuje pary nieruchomości, które różnią się między sobą oceną tylko jednej, konkretnej cechy**, podczas gdy wszystkie pozostałe parametry są identyczne. 
+# Jeśli plik jest wgrany, instrukcja domyślnie się zwija (expanded=False)
+with st.expander("📖 Instrukcja obsługi kalkulatora i zasada działania", expanded=not plik_wgrany):
+    st.markdown("""
+    Narzędzie jest niezwykle pomocne przy stosowaniu **podejścia porównawczego w wycenie nieruchomości**. 
+    Umożliwia ono obiektywne i matematyczne określenie wag cech rynkowych w oparciu o algorytm analizy statystycznej par spełniających kryterium **ceteris paribus** (przy pozostałych warunkach niezmiennych).
 
-> **Przykład:** Jeśli program znajdzie dwa mieszkania, które mają taki sam standard, są na tym samym piętrze i mają tę samą powierzchnię, ale jedno leży w lepszej lokalizacji niż drugie – oznacza to, że różnica w ich cenie wynika wyłącznie z czynnika lokalizacji. Na tej podstawie system oblicza wagę dla cechy 'lokalizacja'.
+    ### 💡 Czym jest zasada ceteris paribus w tym programie?
+    Algorytm przeszukuje Twoją bazę danych i automatycznie **wskazuje pary nieruchomości, które różnią się między sobą oceną tylko jednej, konkretnej cechy**, podczas gdy wszystkie pozostałe parametry są identyczne. 
 
----
+    > **Przykład:** Jeśli program znajdzie dwa mieszkania, które mają taki sam standard, są na tym samym piętrze i mają tę samą powierzchnię, ale jedno leży w lepszej lokalizacji niż drugie – oznacza to, że różnica w ich cenie wynika wyłącznie z czynnika lokalizacji. Na tej podstawie system oblicza wagę dla cechy 'lokalizacja'.
 
-### 🛠️ Krok 1: Przygotowanie danych w pliku Excel / CSV
+    ---
 
-Przed uruchomieniem analizy należy odpowiednio przygotować bazę danych rynkowych w arkuszu kalkulacyjnym.
+    ### 🛠️ Krok 1: Przygotowanie danych w pliku Excel / CSV
+    Przed uruchomieniem analizy należy odpowiednio przygotować bazę danych rynkowych w arkuszu kalkulacyjnym.
 
-⚠️ **WAŻNE (Parametryzacja rynku i skala ocen):**
-System **nie przypisuje automatycznie ocen** na podstawie opisów słownych (np. *"stan dobry"*, *"lokalizacja korzystna"*) ani surowych wartości fizycznych (np. powierzchni w $m^2$ czy konkretnego roku budowy). 
+    ⚠️ **WAŻNE (Parametryzacja rynku i skala ocen):**
+    System **nie przypisuje automatycznie ocen** na podstawie opisów słownych (np. *"stan dobry"*, *"lokalizacja korzystna"*) ani surowych wartości fizycznych (np. powierzchni w $m^2$ czy konkretnego roku budowy). 
 
-Rzeczoznawca majątkowy/użytkownik musi samodzielnie przeprowadzić analizę jakościową rynku i wprowadzić oceny cech w postaci **ręcznie przygotowanej skali liczbowej** (np. `-1`, `0`, `1`, `2`). Kolumny przeznaczone do wyliczenia wag muszą zawierać wyłącznie cyfry.
+    Rzeczoznawca majątkowy/użytkownik musi samodzielnie przeprowadzić analizę jakościową rynku i wprowadzić oceny cech w postaci **ręcznie przygotowanej skali liczbowej** (np. `-1`, `0`, `1`, `2`). Kolumny przeznaczone do wyliczenia wag muszą zawierać wyłącznie cyfry.
 
-**Wymagana struktura tabeli:**
-Plik może posiadać dowolne nazwy nagłówków i dowolną liczbę kolumn, ale algorytm wymaga wskazania trzech kluczowych elementów:
-1. **Kolumny z identyfikatorem** (np. *Lp.* lub *ID*).
-2. **Kolumny z ceną jednostkową** (np. *Cena za m2* lub *Cena*).
-3. **Kolumn z cyfrowymi ocenami cech** (np. *lokalizacja, stan_techniczny, pietro, powierzchnia_kodowana*).
+    **Wymagana struktura tabeli:**
+    Plik może posiadać dowolne nazwy nagłówków, ale musi zawierać kolumnę z identyfikatorem (np. *Lp.* lub *ID*), kolumnę z ceną jednostkową (np. *Cena za m2*) oraz kolumny z cyfrowymi ocenami cech.
 
----
+    ---
 
-### 💻 Krok 2: Wczytanie i konfiguracja w aplikacji WWW
+    ### 💻 Krok 2: Wczytanie i konfiguracja w aplikacji WWW
+    1. **Wgranie bazy:** W panelu bocznym (po lewej stronie) kliknij przycisk **"Browse files"** i wskaż przygotowany plik Excel (`.xlsx`) lub CSV.
+    2. **Mapowanie ceny i ID:** Z list rozwijanych wybierz, która kolumna w Twoim pliku odpowiada za **ID/Lp.**, a która zawiera **CENĘ**.
+    3. **Wybór cech rynkowych:** W polu wielokrotnego wyboru (*multiselect*) zaznacz wyłącznie te kolumny, które **zawierają już liczbową ocenę cech (nie słowną)**. Na ich podstawie system rozpocznie szukanie par.
 
-Interfejs programu został zaprojektowany tak, aby obsługiwać pliki o niestandardowej strukturze.
+    ---
 
-1. **Wgranie bazy:** W panelu bocznym (po lewej stronie) kliknij przycisk **"Browse files"** i wskaż przygotowany plik Excel (`.xlsx`) lub CSV. *(Do celów demonstracyjnych można użyć dołączonego osobno pliku testowego).*
-2. **Mapowanie ceny i ID:** Z list rozwijanych wybierz, która kolumna w Twoim pliku odpowiada za **ID/Lp.**, a która zawiera **CENĘ**.
-3. **Wybór cech rynkowych:** W polu wielokrotnego wyboru (*multiselect*) zaznacz wyłącznie te kolumny, które **zawierają już liczbową ocenę cech (nie słowną)**. Na ich podstawie system rozpocznie szukanie par.
-
----
-
-### 🎯 Krok 3: Odczyt wyników i pobranie raportu
-
-Po poprawnym skonfigurowaniu kolumn, program natychmiastowo wykonuje pełną procedurę obliczeniową:
-
-* **Automatyczna filtracja:** Algorytm przeszukuje całą bazę danych, paruje nieruchomości spełniające warunek *ceteris paribus*, wyliczy wagi wstępne dla każdej cechy, a następnie dokonuje matematycznego przeskalowania wyników do poziomu **100%**.
-* **Prezentacja wyników:** Wyniki końcowe są generowane w czasie rzeczywistym i prezentowane za pomocą **czytelnej tabeli wynikowej** oraz **interaktywnego wykresu słupkowego**.
-* **Generowanie dokumentacji:** W lewym dolnym rogu aplikacji znajduje się przycisk **"Pobierz raport tekstowy"**. Umożliwia on pobranie gotowego pliku `.txt` zawierającego szczegółowy wykaz wszystkich odnalezionych par wraz z kompletnym tokiem obliczeniowym.
-
----
-""")
+    ### 🎯 Krok 3: Odczyt wyników i pobranie raportu
+    * **Automatyczna filtracja:** Algorytm sparuje nieruchomości, wyliczy wagi wstępne dla każdej cechy, a następnie dokona matematycznego przeskalowania wyników do poziomu **100%**.
+    * **Prezentacja wyników:** Wyniki końcowe są generowane w czasie rzeczywistym i prezentowane za pomocą tabeli wynikowej oraz wykresu słupkowego.
+    * **Generowanie dokumentacji:** Przycisk **"Pobierz raport tekstowy"** w panelu bocznym umożliwia pobranie gotowego pliku `.txt` ze szczegółowym wykazem wszystkich odnalezionych par.
+    """)
 
 # Panel boczny do wczytywania danych
 st.sidebar.header("📁 1. Wczytywanie Danych")
 uploaded_file = st.sidebar.file_uploader("Wgraj dowolny plik Excel (.xlsx) lub CSV", type=["xlsx", "xls", "csv"])
 
 if uploaded_file is not None:
+    # Zgłaszamy systemowi, że plik jest wgrany, aby schować instrukcję przy następnym przeładowaniu
+    if not plik_wgrany:
+        st.session_state["file_uploaded"] = True
+        st.rerun()
+        
     try:
         if uploaded_file.name.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(uploaded_file)
@@ -194,4 +192,8 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Wystąpił błąd podczas przetwarzania pliku: {e}")
 else:
+    # Resetujemy stan jeśli plik został usunięty
+    if plik_wgrany:
+        st.session_state["file_uploaded"] = False
+        st.rerun()
     st.info("ℹ️ Wgraj dowolny plik z danymi w panelu bocznym, aby rozpocząć konfigurację analizy.")
