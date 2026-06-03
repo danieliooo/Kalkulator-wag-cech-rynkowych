@@ -33,21 +33,21 @@ with st.expander("📖 Instrukcja obsługi kalkulatora i zasada działania", exp
     Rzeczoznawca majątkowy/użytkownik musi samodzielnie przeprowadzić analizę jakościową rynku i wprowadzić oceny cech w postaci **ręcznie przygotowanej skali liczbowej** (np. `-1`, `0`, `1`, `2`). Kolumny przeznaczone do wyliczenia wag muszą zawierać wyłącznie cyfry.
 
     **Wymagana struktura tabeli:**
-    Plik może posiadać dowolne nazwy nagłówków, ale musi zawierać kolumnę z identyfikatorem (np. *Lp.* lub *ID*), kolumnę z ceną jednostkową (np. *Cena za m2*) oraz kolumny z cyfrowymi ocenami cech.
+    Plik może posiadać dowolne nazwy nagłówków, ale musi zawierać kolumnę z identyfikatorem (np. *Lp.*, *ID* lub *Lokal*), kolumnę z ceną jednostkową (np. *Cena za m2*) oraz kolumny z cyfrowymi ocenami cech.
 
     ---
 
     ### 💻 Krok 2: Wczytanie i konfiguracja w aplikacji WWW
     1. **Wgranie bazy:** W panelu bocznym (po lewej stronie) kliknij przycisk **"Browse files"** i wskaż przygotowany plik Excel (`.xlsx`) lub CSV.
     2. **Mapowanie ceny i ID:** Z list rozwijanych wybierz, która kolumna w Twoim pliku odpowiada za **ID/Lp.**, a która zawiera **CENĘ**.
-    3. **Wybór cech rynkowych:** W polu wielokrotnego wyboru (*multiselect*) zaznacz wyłącznie te kolumny, które **zawierają już liczbową ocenę cech (nie słowną)**. Na ich podstawie system rozpocznie szukanie par.
+    3. **Wybór cech rynkowych:** W polu wielokrotnego wyboru (*multiselect*) zaznacz wyłącznie te kolumny, które **zawierają już liczbową ocenę cech (nie słowną)**. Na ich podstawie system rozpocząć szukanie par.
 
     ---
 
     ### 🎯 Krok 3: Odczyt wyników i pobranie raportu
     * **Automatyczna filtracja:** Algorytm sparuje nieruchomości, wyliczy wagi wstępne dla każdej cechy, a następnie dokona matematycznego przeskalowania wyników do poziomu **100%**.
     * **Prezentacja wyników:** Wyniki końcowe są generowane w czasie rzeczywistym i prezentowane za pomocą tabeli wynikowej oraz wykresu słupkowego.
-    * **Generowanie dokumentacji:** Przycisk **"Pobierz raport tekstowy"** w panelu bocznym umożliwia pobranie gotowego pliku `.txt` ze szczegółowym wykazem wszystkich odnalezionych par.
+    * **Generowanie dokumentacji:** Przycisk **"Pobierz raport tekstowy"** w panelu bocznym Jasmin umożliwia pobranie gotowego pliku `.txt` ze szczegółowym wykazem wszystkich odnalezionych par.
     """)
 
 # Panel boczny do wczytywania danych
@@ -55,37 +55,23 @@ st.sidebar.header("📁 1. Wczytywanie Danych")
 uploaded_file = st.sidebar.file_uploader("Wgraj dowolny plik Excel (.xlsx) lub CSV", type=["xlsx", "xls", "csv"])
 
 if uploaded_file is not None:
-    # Zgłaszamy systemowi, że plik jest wgrany, aby schować instrukcję przy następnym przeładowaniu
     if not plik_wgrany:
         st.session_state["file_uploaded"] = True
         st.rerun()
         
     try:
-        # --- INTELIGENTNE WCZYTYWANIE PLIKU ---
+        # --- PROSTE I CZYSTE WCZYTANIE PLIKU Bez wymuszania nazw nagłówków ---
         if uploaded_file.name.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(uploaded_file)
         else:
             df = pd.read_csv(uploaded_file, sep=None, engine='python')
         
-        # Czyszczenie całkowicie pustych wierszy i kolumn
+        # Czyszczenie całkowicie pustych wierszy i kolumn widm
         df = df.dropna(how='all').dropna(axis=1, how='all')
         
-        # --- BEZPIECZNE SZUKANIE NAGŁÓWKA ---
-        index_naglowka = None
-        for idx in range(min(5, len(df))):  # sprawdzamy pierwsze 5 wierszy
-            wiersz_str = df.iloc[idx].astype(str).str.lower().values
-            if any('lp' in x or 'id' in x or 'cena' in x for x in wiersz_str):
-                index_naglowka = idx
-                break
-                
-        if index_naglowka is not None:
-            # POPRAWIONE: Bezpieczna konwersja na tekst i czyszczenie nazw kolumn
-            nowe_kolumny = df.iloc[index_naglowka].fillna("Unnamed").astype(str).tolist()
-            df.columns = [str(c).strip() for c in nowe_kolumny]
-            df = df.iloc[index_naglowka + 1:]
-            
+        # Bezpieczne wyczyszczenie nazw kolumn z ukrytych spacji, zamiana na czytelny tekst
+        df.columns = [str(c).strip() for c in df.columns]
         df = df.reset_index(drop=True)
-        # -----------------------------------------------------
         
         # --- AUTOMATYCZNE CZYSZCZENIE DANYCH Z TEKSTU ---
         for col in df.columns:
@@ -95,8 +81,9 @@ if uploaded_file is not None:
         # --- DYNAMICZNE MAPOWANIE KOLUMN (W PANELU BOCZNYM) ---
         st.sidebar.header("⚙️ 2. Konfiguracja Kolumn")
         
-        kolumna_lp = st.sidebar.selectbox("Wskaż kolumnę z ID/Lp.:", options=df.columns)
-        kolumna_cena = st.sidebar.selectbox("Wskaż kolumnę z CENĄ (za m² lub całkowitą):", options=df.columns)
+        # Użytkownik sam decyduje co jest czym - pełna dowolność nazw
+        kolumna_lp = st.sidebar.selectbox("Wskaż kolumnę z ID / Identyfikatorem:", options=df.columns)
+        kolumna_cena = st.sidebar.selectbox("Wskaż kolumnę z CENĄ:", options=df.columns)
         
         df = df.dropna(subset=[kolumna_cena])
         
@@ -107,7 +94,7 @@ if uploaded_file is not None:
             default=[]  
         )
         
-        # Podgląd bazy danych w sekcji rozwijanej (zwinięty jeśli wybrano cechy)
+        # Podgląd bazy danych
         cechy_wybrane = len(wybrane_cechy) > 0
         with st.expander("👀 Podgląd wczytanej bazy danych", expanded=not cechy_wybrane):
             st.dataframe(df, use_container_width=True)
@@ -159,7 +146,7 @@ if uploaded_file is not None:
                                     wagi_par.append(waga_ostateczna)
                                     
                                     tabela_par.append({
-                                        "Para": f"ID {int(pmax[kolumna_lp])} vs ID {int(pmin[kolumna_lp])}",
+                                        "Para": f"ID {pmax[kolumna_lp]} vs ID {pmin[kolumna_lp]}",
                                         "Cena wyższa": f"{cena_pmax:.2f} zł",
                                         "Cena niższa": f"{cena_pmin:.2f} zł",
                                         "Różnica ocen": roznica_ocen,
@@ -215,7 +202,6 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Wystąpił błąd podczas przetwarzania pliku: {e}")
 else:
-    # Resetujemy stan jeśli plik został usunięty
     if plik_wgrany:
         st.session_state["file_uploaded"] = False
         st.rerun()
