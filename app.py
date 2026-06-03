@@ -2,25 +2,53 @@ import streamlit as st
 import pandas as pd
 import io
 
-# Konfiguracja strony
+# Konfiguracja strony (to, co widać na karcie w przeglądarce)
 st.set_page_config(page_title="Kalkulator Wag Cech Rynkowych", layout="wide")
 
 # Nagłówek główny programu
-st.title("📊 Kalkulator wag cech rynkowych - wycena nieruchomości")
+st.title("📊 Kalkulator wag cech rynkowych – wycena nieruchomości")
 
-# --- INSTRUKCJA KROK PO KROKU NA EKRANIE GŁÓWNYM ---
+# --- PEŁNA INSTRUKCJA UŻYTKOWNIKA NA EKRANIE GŁÓWNYM ---
 st.markdown("""
-### 📖 Instrukcja obsługi kalkulatora (Krok po kroku):
+Aplikacja jest profesjonalnym narzędziem wspomagającym proces wyceny nieruchomości w podejściu porównawczym. Służy do automatycznego określania wag cech rynkowych w oparciu o algorytm analizy statystycznej par spełniających rygorystyczne kryterium **ceteris paribus** (przy pozostałych warunkach niezmiennych).
 
-1. **Wgraj plik:** W panelu bocznym po lewej stronie kliknij przycisk **Browse files** i wskaż swój plik Excel (`.xlsx`) lub CSV ze zbiorem nieruchomości. *(Możesz użyć dołączonego osobno pliku testowego).*
-2. **Sprawdź podgląd:** Po załadowaniu pliku na środku ekranu wyświetli się tabela – upewnij się, że dane wczytały się poprawnie.
-3. **Sformatuj kolumny:** W panelu bocznym wskaż programowi, która kolumna zawiera identyfikatory (**ID/Lp.**), a która **CENĘ**.
-4. **Wskaż cechy rynkowe:** W polu *'Wybierz kolumny stanowiące CECHY RYNKOWE'* wybierz kolumny z cyfrowymi ocenami cech.
+---
 
-⚠️ **WAŻNA UWAGA METODOLOGICZNA:** System **nie przypisuje automatycznie ocen** cech na podstawie wartości (np. roku budowy czy powierzchni). Wszystkie cechy rynkowe w pliku Excel muszą zostać wcześniej **przekształcone przez rzeczoznawcę na ręcznie stworzoną skalę liczbową** (np. `0, 1, 2` lub `-1, 0, 1`). Kolumny z cechami nie mogą zawierać tekstu!
+### 🛠️ Krok 1: Przygotowanie danych w pliku Excel / CSV
 
-5. **Analizuj wyniki:** Na dole ekranu wyświetli się tabela wag ostatecznych (skorygowana do 100%) oraz wykres.
-6. **Pobierz raport:** Kliknij przycisk **Pobierz raport tekstowy** w lewym dolnym rogu, aby pobrać szczegółowy wykaz par do operatu.
+Przed uruchomieniem analizy należy odpowiednio przygotować bazę danych rynkowych w arkuszu kalkulacyjnym.
+
+⚠️ **WAŻNE (Parametryzacja rynku i skala ocen):**
+System **nie przypisuje automatycznie ocen** na podstawie opisów słownych (np. *"stan dobry"*, *"lokalizacja korzystna"*) ani surowych wartości fizycznych (np. powierzchni w $m^2$ czy konkretnego roku budowy). 
+
+Rzeczoznawca majątkowy/użytkownik musi samodzielnie przeprowadzić analizę jakościową rynku i wprowadzić oceny cech w postaci **ręcznie przygotowanej skali liczbowej** (np. `-1`, `0`, `1`, `2`). Kolumny przeznaczone do wyliczenia wag muszą zawierać wyłącznie cyfry.
+
+**Wymagana struktura tabeli:**
+Plik może posiadać dowolne nazwy nagłówków i dowolną liczbę kolumn, ale algorytm wymaga wskazania trzech kluczowych elementów:
+1. **Kolumny z identyfikatorem** (np. *Lp.* lub *ID*).
+2. **Kolumny z ceną jednostkową** (np. *Cena za m2* lub *Cena*).
+3. **Kolumn z cyfrowymi ocenami cech** (np. *lokalizacja, stan_techniczny, pietro, powierzchnia_kodowana*).
+
+---
+
+### 💻 Krok 2: Wczytanie i konfiguracja w aplikacji WWW
+
+Interfejs programu został zaprojektowany tak, aby obsługiwać pliki o niestandardowej strukturze.
+
+1. **Wgranie bazy:** W panelu bocznym (po lewej stronie) kliknij przycisk **"Browse files"** i wskaż przygotowany plik Excel (`.xlsx`) lub CSV. *(Do celów demonstracyjnych można użyć dołączonego osobno pliku testowego).*
+2. **Mapowanie ceny i ID:** Z list rozwijanych wybierz, która kolumna w Twoim pliku odpowiada za **ID/Lp.**, a która zawiera **CENĘ**.
+3. **Wybór cech rynkowych:** W polu wielokrotnego wyboru (*multiselect*) zaznacz wyłącznie te kolumny, które stanowią **CECHY RYNKOWE** podlegające analizie. 
+
+---
+
+### 🎯 Krok 3: Odczyt wyników i pobranie raportu
+
+Po poprawnym skonfigurowaniu kolumn, program natychmiastowo wykonuje pełną procedurę obliczeniową:
+
+* **Automatyczna filtracja:** Algorytm przeszukuje całą bazę danych, paruje nieruchomości spełniające warunek *ceteris paribus*, wyliczy wagi wstępne dla każdej cechy, a następnie dokonuje matematycznego przeskalowania wyników do poziomu **100%**.
+* **Prezentacja wyników:** Wyniki końcowe są generowane w czasie rzeczywistym i prezentowane za pomocą **czytelnej tabeli wynikowej** oraz **interaktywnego wykresu słupkowego**.
+* **Generowanie dokumentacji:** W lewym dolnym rogu aplikacji znajduje się przycisk **"Pobierz raport tekstowy"**. Umożliwia on pobranie gotowego pliku `.txt` zawierającego szczegółowy wykaz wszystkich odnalezionych par wraz z kompletnym tokiem obliczeniowym.
+
 ---
 """)
 
@@ -59,7 +87,7 @@ if uploaded_file is not None:
         )
         
         if not wybrane_cechy:
-            st.warning("⚠️ Wybierz przynajmniej jedną cechę rynkową w panelu bocznym (Krok 4), aby rozpocząć obliczenia.")
+            st.warning("⚠️ Wybierz przynajmniej jedną cechę rynkową w panelu bocznym (Krok 2), aby rozpocząć obliczenia.")
         else:
             delta_c = df[kolumna_cena].max() - df[kolumna_cena].min()
             sredmie_wagi = {}
