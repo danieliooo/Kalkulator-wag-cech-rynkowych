@@ -37,7 +37,8 @@ with st.expander("📖 Instrukcja obsługi kalkulatora i zasada działania", exp
     📋 **Wymogi techniczne pliku Excel/CSV:**
     * **Pierwszy wiersz arkusza:** Najlepiej, aby nazwy kolumn (nagłówki) znajdowały się **od razu w pierwszym wierszu pliku**. Nad tabelą nie powinno być żadnych pustych linii, tytułów ani dodatkowych opisów scalonych w Excelu.
     * **Wielorakość arkuszy:** Jeśli Twój skoroszyt Excel posiada więcej niż jeden arkusz, **system zawsze automatycznie wczyta pierwszy arkusz od lewej**. Upewnij się, że baza danych znajduje się na samym początku pliku.
-    * Plik musi zawierać kolumnę z identyfikatorem (np. *Lp.*, *ID* lub *Lokal*), kolumnę z ceną jednostkową (np. *Cena za m2*) oraz kolumny z cyfrowymi ocenami cech.
+    * **Kolumna ID/Lp.:** Ta kolumna **musi zawierać liczby** – służy ona po prostu do jednoznacznej identyfikacji każdej nieruchomości po jej numerze w bazie.
+    * Plik musi zawierać wspomnianą kolumnę z identyfikatorem liczbowym (np. *Lp.* lub *ID*), kolumnę z ceną jednostkową (np. *Cena za m2*) oraz kolumny z cyfrowymi ocenami cech.
 
     ---
 
@@ -64,7 +65,7 @@ if uploaded_file is not None:
         st.rerun()
         
     try:
-        # Wczytywanie pliku (zawsze bierze pierwszy arkusz dla excel)
+        # Wczytywanie pliku
         if uploaded_file.name.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(uploaded_file)
         else:
@@ -77,18 +78,20 @@ if uploaded_file is not None:
         df.columns = [str(c).strip() for c in df.columns]
         df = df.reset_index(drop=True)
         
+        # --- DYNAMICZNE MAPOWANIE KOLUMN (W PANELU BOCZNYM) ---
+        st.sidebar.header("⚙️ 2. Konfiguracja Kolumn")
+        
+        kolumna_lp = st.sidebar.selectbox("Wskaż kolumnę z ID / Identyfikatorem (Lp./ID):", options=df.columns)
+        kolumna_cena = st.sidebar.selectbox("Wskaż kolumnę z CENĄ:", options=df.columns)
+        
         # --- AUTOMATYCZNE CZYSZCZENIE DANYCH Z TEKSTU ---
+        # Zamieniamy na liczby wszystko (w tym kolumnę ID, bo musi zawierać liczby)
         for col in df.columns:
             if str(col).lower() != 'nazwa':
                 df[col] = pd.to_numeric(df[col], errors='coerce')
         
-        # --- DYNAMICZNE MAPOWANIE KOLUMN (W PANELU BOCZNYM) ---
-        st.sidebar.header("⚙️ 2. Konfiguracja Kolumn")
-        
-        kolumna_lp = st.sidebar.selectbox("Wskaż kolumnę z ID / Identyfikatorem:", options=df.columns)
-        kolumna_cena = st.sidebar.selectbox("Wskaż kolumnę z CENĄ:", options=df.columns)
-        
         df = df.dropna(subset=[kolumna_cena])
+        df = df.dropna(subset=[kolumna_lp]) # usuwamy wiersze, gdzie ID nie jest liczbą
         
         dostasowane_kolumny = [c for c in df.columns if c != kolumna_lp and c != kolumna_cena and str(c).lower() != 'nazwa']
         wybrane_cechy = st.sidebar.multiselect(
@@ -148,8 +151,12 @@ if uploaded_file is not None:
                                     
                                     wagi_par.append(waga_ostateczna)
                                     
+                                    # Zamieniamy na int dla ładnego wyglądu liczby ID
+                                    id_max = int(pmax[kolumna_lp])
+                                    id_min = int(pmin[kolumna_lp])
+                                    
                                     tabela_par.append({
-                                        "Para": f"ID {pmax[kolumna_lp]} vs ID {pmin[kolumna_lp]}",
+                                        "Para": f"ID {id_max} vs ID {id_min}",
                                         "Cena wyższa": f"{cena_pmax:.2f} zł",
                                         "Cena niższa": f"{cena_pmin:.2f} zł",
                                         "Różnica ocen": roznica_ocen,
