@@ -23,6 +23,17 @@ if uploaded_file is not None:
         else:
             df = pd.read_csv(uploaded_file, sep=';')
         
+        # --- AUTOMATYCZNE CZYSZCZENIE DANYCH Z TEKSTU ---
+        # Zamieniamy wszystkie kolumny (oprócz 'nazwa') na typ liczbowy. 
+        # Jeśli znajdzie tekst w liczbach, zamieni go na NaN (pustą wartość), dzięki czemu program się nie wyłoży.
+        for col in df.columns:
+            if col != 'nazwa':
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        # Usuwamy wiersze, które po konwersji mają puste wartości w kolumnie z ceną
+        df = df.dropna(subset=['cena'])
+        # -----------------------------------------------------
+        
         st.subheader("👀 Podgląd wczytanej bazy danych")
         st.dataframe(df, use_container_width=True)
         
@@ -77,7 +88,7 @@ if uploaded_file is not None:
                             m2 = df.iloc[j]
                             
                             # Dynamiczny warunek ceteris paribus dla wybranych kolumn
-                            if all(m1[c] == m2[c] for c in pozostale_cechy) and m1[kolumna_glowna] != m2[kolumna_glowna]:
+                            if all(pd.notna(m1[c]) and pd.notna(m2[c]) and m1[c] == m2[c] for c in pozostale_cechy) and m1[kolumna_glowna] != m2[kolumna_glowna]:
                                 if m1[kolumna_glowna] > m2[kolumna_glowna]:
                                     pmax, pmin = m1, m2
                                 else:
@@ -86,7 +97,7 @@ if uploaded_file is not None:
                                 cena_pmax = pmax[kolumna_cena]
                                 cena_pmin = pmin[kolumna_cena]
                                 
-                                if cena_pmax >= cena_pmin:
+                                if pd.notna(cena_pmax) and pd.notna(cena_pmin) and cena_pmax >= cena_pmin:
                                     roznica_ocen = pmax[kolumna_glowna] - pmin[kolumna_glowna]
                                     waga_bazowa = (cena_pmax - cena_pmin) / delta_c
                                     mnoznik = pelny_zakres_ocen / roznica_ocen
@@ -129,7 +140,7 @@ if uploaded_file is not None:
                 df_wyniki = pd.DataFrame(wyniki_tabela)
                 st.dataframe(df_wyniki, use_container_width=True)
                 
-                # Wykres słupkowy dostosowujący się do liczby cech
+                # Wykres słupkowy
                 df_wykres = pd.DataFrame({
                     'Cecha': [str(c).capitalize() for c in srednie_wagi.keys()],
                     'Waga (%)': [(sw / suma_srednich) * 100 for sw in srednie_wagi.values()]
