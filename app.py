@@ -2,30 +2,8 @@ import streamlit as st
 import pandas as pd
 import io
 
-# Konfiguracja strony
+# Konfiguracja strony (to, co widać na karcie w przeglądarce)
 st.set_page_config(page_title="Kalkulator Wag Cech Rynkowych", layout="wide")
-
-# --- STYL CSS DLA STRZAŁEK W PROSTOKĄCIKACH ---
-st.markdown("""
-    <style>
-    /* Stylowanie ikony strzałki (prostokącik wokół niej) */
-    div[data-baseweb="select"] button svg {
-        border: 2px solid #4F46E5 !important; /* Wyraźna ramka indygo */
-        border-radius: 4px !important;       /* Zaokrąglenie rogów */
-        background-color: #F3F4F6 !important; /* Szare tło */
-        padding: 2px !important;             /* Odstęp strzałki od ramki */
-        color: #111827 !important;           /* Ciemna strzałka */
-        stroke: #111827 !important;          /* Pogrubienie linii */
-        stroke-width: 3px !important;
-    }
-    
-    /* Pogrubione i wyraźniejsze obramowanie całego pola wyboru */
-    div[data-baseweb="select"] {
-        border: 1px solid #D1D5DB !important;
-        border-radius: 6px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 # Nagłówek główny programu
 st.title("📊 Kalkulator wag cech rynkowych – wycena nieruchomości")
